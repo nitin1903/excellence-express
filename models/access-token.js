@@ -1,6 +1,7 @@
 const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 const users = require('./user')
+
 const accessTokenSchema = Schema({
     user_id : {type: mongoose.Types.ObjectId, required: true, ref: users},
     access_token: {type: String, required: true, unique: true},
@@ -15,7 +16,6 @@ accessTokenSchema.statics.addToken = async function(token, userId) {
         access_token: token,
         expiry: date
     })
-
     await Token.save()
 }
 

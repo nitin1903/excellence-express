@@ -11,15 +11,8 @@ const addressSchema = new Schema({
 })
 
 addressSchema.statics.addAddress = async function(userId, addressData){
-    address = new Address({
-        user_id: userId,
-        address: addressData.address,
-        city: addressData.city,
-        state: addressData.state,
-        pin_code: addressData.pin_code,
-        phone_number: addressData.phone_number
-    })
-    const result = await address.save()
+    addressData.user_id = userId
+    const result = await Address.create(addressData)
     return result
     
 }
