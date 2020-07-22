@@ -14,7 +14,6 @@ addressSchema.statics.addAddress = async function(userId, addressData){
     addressData.user_id = userId
     const result = await Address.create(addressData)
     return result
-    
 }
 
 const Address = module.exports = mongoose.model('address', addressSchema)

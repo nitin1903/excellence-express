@@ -27,7 +27,7 @@ userSchema.statics.getUser = async function(userData) {
     const result = await Users.findOne({user_name: userData.user_name})
     
     if(result == null)
-    {return null}
+        return null
 
     let password = crypto.createHash('md5').update(userData.password).digest('hex')
     if(result.password == password){
@@ -53,5 +53,3 @@ userSchema.path('email').validate(emailValidator,
 
 userSchema.path('user_name').validate(userNameValidator, 
     'user name `{VALUE}` is already taken')
-
-console.log(Users.addUser)
