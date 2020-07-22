@@ -14,32 +14,23 @@ const userSchema = new Schema({
 })
 
 userSchema.statics.addAddress = async function(userId, addressId) {
-    await User.findOneAndUpdate({_id: userId}, {"$push": {addresses: addressId}})
+    await Users.findOneAndUpdate({_id: userId}, {"$push": {addresses: addressId}})
 }
 
 userSchema.statics.addUser = async function(userData) {
-    const user = new Users({
-        user_name: userData.user_name,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        email: userData.email,
-        password: crypto.createHash('md5').update(userData.password).digest('hex')
-    })
-
-    const result = await user.save()
+    userData.password = crypto.createHash('md5').update(userData.password).digest('hex')
+    const result = await Users.create(userData)
     return result
 }
 
 userSchema.statics.getUser = async function(userData) {
     const result = await Users.findOne({user_name: userData.user_name})
-    console.log(`user in getUser() ${result}`)
     
     if(result == null)
-    {return null}
+        return null
 
     let password = crypto.createHash('md5').update(userData.password).digest('hex')
     if(result.password == password){
-        console.log('in password matching')
         return result
     }
     return null
@@ -54,7 +45,6 @@ async function userNameValidator(value) {
 
 async function emailValidator(value) {
     const result = await Users.findOne({email: value})
-
     return result == null
 }
 
@@ -63,4 +53,3 @@ userSchema.path('email').validate(emailValidator,
 
 userSchema.path('user_name').validate(userNameValidator, 
     'user name `{VALUE}` is already taken')
-
