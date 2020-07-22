@@ -3,6 +3,8 @@ var router = express.Router();
 
 const crypto = require('crypto')
 const User = require('../models/user')
+const AccessToken = require('../models/access-token')
+const Address = require('../models/address')
 
 async function validateData(req, res, next){
   const user = req.body
@@ -47,6 +49,19 @@ function passworMatch(password, confPassword) {
 
 // end of validateData middleware
 
+function validateAddress(req, res, next) {
+  if(req.body.pin_code.length > 6){
+    return res.sendStatus(401)
+  }
+  req.body.pin_code = Number(req.body.pin_code)
+
+  if(req.body.phone_number.length > 10) {
+    return res.sendStatus(401)
+  }
+  req.body.phone_number.length = Number(req.body.phone_number.length)
+  next()
+}
+
 async function validateToken(req, res, next) {
   const token = req.get('authorization').split(' ')[1]
   console.log(`token ${token}`)
@@ -54,10 +69,14 @@ async function validateToken(req, res, next) {
       return res.sendStatus(403)
   res.locals.accessToken = token
   try{
-      let result = await User.findOne({_id: token})
+      let result = await AccessToken.findOne({access_token: token})
 
       if(result == null){
           return res.sendStatus(403)
+      }
+      const d = new Date()
+      if(d > result.expiry) {
+        return res.status(403).send("token expired")
       }
       res.locals.result = result
       next()
@@ -67,6 +86,28 @@ async function validateToken(req, res, next) {
   }
 }
 
+function generateToken() {
+  const d = new Date
+  return crypto.createHash('md5').update(d.getTime().toString()).digest('hex')
+}
+
+async function saveToken(token, id) {
+  const d = new Date()
+  d.setHours(d.getHours() + 1)
+  const accessToken = new AccessToken({
+    user_id : id,
+    access_token : token,
+    expiry : d
+  })
+
+  try{
+    let result = await accessToken.save()
+    console.log(result)
+  } catch(err) {
+    console.log(err)
+    throw err
+  }
+}
 
 router.post('/register', validateData, async (req, res) => {
   const user = req.body
@@ -75,7 +116,7 @@ router.post('/register', validateData, async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
-      password: crypto.createHash('md5', user.password).digest('hex')
+      password: crypto.createHash('md5').update(user.password).digest('hex')
   })
   try{
       let result = await u.save()
@@ -91,7 +132,7 @@ router.post('/register', validateData, async (req, res) => {
 
 router.post('/login', async (req, res) => {
   const user_name = req.body.user_name
-  const password = crypto.createHash('md5', req.body.password).digest('hex')
+  const password = crypto.createHash('md5').update(req.body.password).digest('hex')
   console.log(`password: ${password}`)
   try{
       let result = await User.findOne({user_name})
@@ -101,8 +142,11 @@ router.post('/login', async (req, res) => {
       }
       console.log(`result password: ${result.password}`)
       if(result.password == password) {
+          const token = generateToken()
+          console.log(`token is: $token`)
+          saveToken(token, result._id)
           res.status(200)
-          return res.json({"access_token" : result._id})
+          return res.json({"access_token" : token})
           
       }
       return res.sendStatus(403)
@@ -113,9 +157,13 @@ router.post('/login', async (req, res) => {
   
 })
 
-router.get('/get', validateToken, (req, res) => {
-  res.status(200)
-  res.json(res.locals.result)
+router.get('/get', validateToken, async (req, res) => {
+  try{
+    const result = await User.findById(res.locals.result.user_id).populate('addresses')
+    res.status(200)
+    return res.json(result)
+  } catch(err){}
+  return res.sendStatus(500)
 })
 
 router.put('/delete', validateToken, async (req, res) => {
@@ -128,5 +176,28 @@ router.put('/delete', validateToken, async (req, res) => {
       return res.sendStatus(500)
   }
 })
+
+router.post('/address', validateToken, validateAddress, async (req, res) => {
+  const ad = new Address({
+    user_id : res.locals.result.user_id,
+    address: req.body.address,
+    city: req.body.city,
+    state: req.body.state,
+    pin_code: req.body.pin_code,
+    phone_number: req.body.phone_number
+  })
+
+  try{
+    let result = await ad.save()
+    console.log(result)
+    let result2 = await User.findOneAndUpdate({_id: result.user_id},
+      {"$push": {addresses: result._id}})
+    return res.sendStatus(200)
+  } catch(err) {
+    console.log(err)
+    return res.sendStatus(500)
+  }
+})
+
 
 module.exports = router;
