@@ -7,4 +7,16 @@ const accessTokenSchema = Schema({
     expiry: {type: Date, required: true}
 })
 
-module.exports = mongoose.model('access_token', accessTokenSchema)
+accessTokenSchema.statics.addToken = async function(token, userId) {
+    const date = new Date()
+    date.setHours(date.getHours() + 1)
+    const Token = new AccessToken({
+        user_id: userId,
+        access_token: token,
+        expiry: date
+    })
+
+    await Token.save()
+}
+
+AccessToken = module.exports = mongoose.model('access_token', accessTokenSchema)
