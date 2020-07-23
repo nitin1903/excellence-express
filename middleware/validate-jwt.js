@@ -11,7 +11,7 @@ const validator = async function(req, res, next) {
         const decoded = await jwt.verify(token, secret)
         req.user = decoded
         const user = await User.findById(decoded.user_id)
-        if(user == null){
+        if(!user){
             return res.status(404).json({message: "user not found"})
         }
         return next()
