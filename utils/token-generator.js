@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken')
-
 const secret = require('../config').secret
 
 async function generateToken(user_id) {
