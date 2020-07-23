@@ -9,9 +9,20 @@ const generateToken = require('../utils/token-generator')
 
 var router = express.Router();
 
-const validateToken = jwtValidate({secret, algorithms: ['HS256']})
+router.use(jwtValidate({secret, algorithms: ['HS256']}))
+router.use((err, req, res, next) => {
+  if(req.path === '/login' || req.path === '/register'){
+    return next()
+  }
+  if(err.name === 'UnauthorizedError'){
+    return res.status(401).send('invalid token..')
+  }
+})
 
 router.post('/register', async (req, res) => {
+  if(req.user){
+    return res.status(200).json({message: "you are logged in.."})
+  }
   const userData = req.body
   if(userData.password != userData.confPassword) {
     return res.status(400).json({message: "password does not match"})
@@ -25,6 +36,9 @@ router.post('/register', async (req, res) => {
 })
 
 router.post('/login', async (req, res) => {
+  if(req.user){
+    return res.status(200).json({message: "you are logged in.."})
+  }
   try{
     const user = await User.getUser(req.body)
     if(user == null){
@@ -37,7 +51,7 @@ router.post('/login', async (req, res) => {
   }
 })
 
-router.post('/address', validateToken, async (req, res) => {
+router.post('/address', async (req, res) => {
   try{
     const result = await Address.addAddress(req.user.user_id, req.body)
     await User.addAddress(result.user_id, result._id)
@@ -47,7 +61,7 @@ router.post('/address', validateToken, async (req, res) => {
   }
 })
 
-router.get('/get', validateToken, async (req, res) => {
+router.get('/get', async (req, res) => {
   try{
     const result = await User.findById(req.user.user_id).populate('addresses')
     return res.status(200).json(result)
@@ -57,7 +71,7 @@ router.get('/get', validateToken, async (req, res) => {
 })
 
 
-router.put('/delete', validateToken, async (req, res) => {
+router.put('/delete', async (req, res) => {
   try{
     let result = await User.deleteOne({_id: req.juser.user_id})      
     return res.status(200).json({message: "user deleted"})
