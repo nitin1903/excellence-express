@@ -9,11 +9,11 @@ const validator = async function(req, res, next) {
     }
     try{
         const decoded = await jwt.verify(token, secret)
-        req.user = decoded
-        const user = await User.findById(decoded.user_id)
+        const user = await User.getUserById(Number(decoded.user_id))
         if(!user){
             return res.status(404).json({message: "user not found"})
         }
+        req.user = user
         return next()
     } catch(err){
         if(err.name == "JsonWebTokenError"){

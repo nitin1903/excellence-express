@@ -1,55 +1,115 @@
-const mongoose = require('mongoose')
+const {DataTypes} = require('sequelize')
 const crypto = require('crypto')
-const Schema = mongoose.Schema
-const address = require('./address')
+const sequelize = require('../dbconnection')
+const Address = require('./address')
 
-const userSchema = new Schema({
-    user_name: {type: String, required: true, unique: true,
+const User = sequelize.define('User', {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
     },
-    firstName: {type: String, required: true},
-    lastName: {type: String, required: true},
-    email: {type: String, required: true, unique: true},
-    password: {type: String, required: true},
-    addresses: [{type: mongoose.Types.ObjectId, ref: address}]
+    first_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    last_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    user_name: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: false
+    },
+    email: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: false
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false
+    }
+}, {
+    tableName: 'users',
+    timestamps: false
 })
 
-userSchema.statics.addAddress = async function(userId, addressId) {
-    await Users.findOneAndUpdate({_id: userId}, {"$push": {addresses: addressId}})
+User.addHook('beforeCreate', (user, options) => {
+    user.password = crypto.createHash('md5').update(user.password).digest('hex')
+})
+
+User.addUser = async function(userData){
+    try{
+        const user = await this.create({
+          first_name : userData.first_name,
+          last_name: userData.last_name,
+          email: userData.email,
+          user_name: userData.user_name,
+          password: userData.password
+        })
+        return user
+      } catch(err) {
+        throw err
+      }
 }
 
-userSchema.statics.addUser = async function(userData) {
-    userData.password = crypto.createHash('md5').update(userData.password).digest('hex')
-    const result = await Users.create(userData)
-    return result
-}
-
-userSchema.statics.getUser = async function(userData) {
-    const result = await Users.findOne({user_name: userData.user_name})
-    
-    if(result == null)
-        return null
-
-    let password = crypto.createHash('md5').update(userData.password).digest('hex')
-    if(result.password == password){
+User.getUserById = async function(user_id){
+    try{
+        let result = await this.findOne({
+            where : {
+                id: user_id
+            }
+        })
+        if(!result){
+            return null
+        }
+        result = result.dataValues
         return result
+    } catch(err){
+        throw err
     }
-    return null
 }
 
-const Users = module.exports = mongoose.model('Users', userSchema)
-
-async function userNameValidator(value) {
-    const result = await Users.findOne({user_name: value})
-    return result == null
+User.getUser = async function(credential) {
+    try{
+        let result = await this.findOne({
+            where : {
+                user_name : credential.user_name
+            }
+        })
+        if(!result){
+            return null
+        }
+        result = result.dataValues
+        const password = crypto.createHash('md5').update(credential.password).digest('hex')
+        if(result.password == password){
+            return result
+        }
+        return null
+    } catch(err) {
+        throw err
+    }
 }
 
-async function emailValidator(value) {
-    const result = await Users.findOne({email: value})
-    return result == null
+User.delete = async function(user_id){
+    try{
+        const result = await sequelize.transaction(async(t) => {
+            await Address.destroy({
+                where:{
+                    user_id: user_id
+                }
+            }, {transaction : t})
+            await this.destroy({
+                where: {
+                    id: user_id
+                }
+            },{transaction: t})
+        })
+    } catch(err){
+        throw err
+    }
+    
 }
-
-userSchema.path('email').validate(emailValidator,
-    'email `{VALUE}` is already registered')
-
-userSchema.path('user_name').validate(userNameValidator, 
-    'user name `{VALUE}` is already taken')
+module.exports = User

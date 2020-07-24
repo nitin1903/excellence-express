@@ -1,24 +1,25 @@
 var express = require('express');
-const crypto = require('crypto')
-const jwtValidate = require('express-jwt')
+const {validationResult} = require('express-validator')
 
 const User = require('../models/user')
 const Address = require('../models/address')
+const validate = require('../middleware/validate-data')
 const generateToken = require('../utils/token-generator')
 const verifyToken = require('../middleware/validate-jwt')
 
 var router = express.Router();
 
-router.post('/register', async (req, res) => {
-  const userData = req.body
-  if(userData.password != userData.confPassword) {
-    return res.status(400).json({message: "password does not match"})
+router.post('/register', validate.userDataValidation, async (req, res) => {
+  const errors = validationResult(req)
+  if(!errors.isEmpty()) {
+    return res.status(400).json({errors: errors.array()})
   }
+  const userData = req.body
   try{
-      let result = await User.addUser(userData)
-      return res.status(200).json(result)
+    const user = await User.addUser(userData)
+    res.status(200).json(user)
   } catch(err) {
-      return res.status(500).json({error: "internal server error"})
+    res.status(500).json({message: 'internal server error'})
   }
 })
 
@@ -28,17 +29,17 @@ router.post('/login', async (req, res) => {
     if(user == null){
       return res.status(400).json({message: 'invalid username and password'})
     }
-    const token = await generateToken(user._id)
+    const token = await generateToken(user.id)
     res.status(200).json({token})
   } catch(err){
     return res.status(500).json({error: "internal server error"})
   }
 })
 
-router.post('/address', verifyToken, async (req, res) => {
+router.post('/address', verifyToken, validate.addressValidation, async (req, res) => {
+  const addressData = req.body
   try{
-    const result = await Address.addAddress(req.user.user_id, req.body)
-    await User.addAddress(result.user_id, result._id)
+    const result = await Address.addAddress(addressData, req.user.id)
     res.status(200).json(result)
   } catch (err){
     return res.status(500).json({error: "internal server error"})
@@ -46,9 +47,11 @@ router.post('/address', verifyToken, async (req, res) => {
 })
 
 router.get('/get', verifyToken, async (req, res) => {
+  const user = req.user
   try{
-    const result = await User.findById(req.user.user_id).populate('addresses')
-    return res.status(200).json(result)
+    const addresses = await Address.getByUserId(user.id)
+    user.addresses = JSON.parse(addresses) || []
+    return res.status(200).json(user)
   } catch(err){
     return res.status(500).json({error: "internal server error"})
   }
@@ -56,9 +59,10 @@ router.get('/get', verifyToken, async (req, res) => {
 
 router.put('/delete', verifyToken, async (req, res) => {
   try{
-    let result = await User.deleteOne({_id: req.user.user_id})      
+    await User.delete(req.user.id)      
     return res.status(200).json({message: "user deleted"})
   } catch(err) {
+    console.log(err)
     return res.status(500).json({error: "internal server error"})
   }
 })
