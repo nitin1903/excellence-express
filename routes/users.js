@@ -1,9 +1,10 @@
 var express = require('express');
 const {validationResult} = require('express-validator')
+const passport = require('passport')
 
 const User = require('../models/user')
 const Address = require('../models/address')
-const validate = require('../middleware/validate-data')
+//const validate = require('../middleware/validate-data')
 const generateToken = require('../utils/token-generator')
 const verifyToken = require('../middleware/validate-jwt')
 
@@ -23,17 +24,21 @@ router.post('/register', validate.userDataValidation, async (req, res) => {
   }
 })
 
-router.post('/login', async (req, res) => {
-  try{
-    const user = await User.getUser(req.body)
-    if(user == null){
-      return res.status(400).json({message: 'invalid username and password'})
+router.post('/login', async (req, res, next) => {
+  passport.authenticate('login', async(err, user, info) => {
+    if(err){
+      return res.status(500).json({message: 'internal server error'})
     }
-    const token = await generateToken(user.id)
-    res.status(200).json({token})
-  } catch(err){
-    return res.status(500).json({error: "internal server error"})
-  }
+    if(!user){
+      return res.status(401).json({message: 'invalid username or password'})
+    }
+    try{
+      const token = await generateToken(user.id)
+      return res.status(200).json({token})
+    } catch(err) {
+      return res.status(500).json({message: 'internal server error'})
+    }
+  })(req, res, next)
 })
 
 router.post('/address', verifyToken, validate.addressValidation, async (req, res) => {
