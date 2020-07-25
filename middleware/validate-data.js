@@ -14,8 +14,8 @@ function validateuserData() {
   })
     
   return [
-    emailValidation, 
-    userNameValiadtion, 
+    emailValidation,
+    userNameValiadtion,
     firstNameValidation,
     lastNameValidation,
     passwordValidation,
@@ -39,5 +39,5 @@ function validateAdderssData() {
   ]
 }
 
-module.export.userDataValidation = validateuserData()
-module.export.addressValidation = validateAdderssData()
+module.exports.userDataValidation = validateuserData()
+module.exports.addressValidation = validateAdderssData()
