@@ -1,31 +1,77 @@
-const mongoose = require('mongoose')
-const Schema = mongoose.Schema
-const User = require('./user')
-const addressSchema = new Schema({
-    user_id : {type: mongoose.Types.ObjectId, required: true},
-    address: {type: String, required: true},
-    city: {type: String, required: true},
-    state: {type: String, required: true},
-    pin_code: {type: String, required: true},
-    phone_number: {type: String, required: true}
-})
+const { DataTypes } = require("sequelize");
+const sequelize = require("../dbconnection");
+const User = require("./user");
 
-addressSchema.statics.addAddress = async function(userId, addressData){
-    addressData.user_id = userId
-    const result = await Address.create(addressData)
-    return result
-}
+const Address = sequelize.define(
+  "Address",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      references: {
+        model: User,
+        key: "id",
+      },
+    },
+    address: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    city: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    state: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    pin_code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    phone_number: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+  },
+  {
+    tableName: "addresses",
+    timestamps: false,
+  }
+);
 
-const Address = module.exports = mongoose.model('address', addressSchema)
+Address.addAddress = async function (addressData, id) {
+  try {
+    const result = await Address.create({
+      address: addressData.address,
+      city: addressData.city,
+      state: addressData.state,
+      pin_code: addressData.pin_code,
+      phone_number: addressData.phone_number,
+      user_id: id,
+    });
+    return result;
+  } catch (err) {
+    throw err;
+  }
+};
 
-async function pinCodeValidation(value) {
-    return /\d{6}/.test(value)
-}
+Address.getByUserId = async function (id) {
+  try {
+    let addresses = await this.findAll({
+      where: {
+        user_id: id,
+      },
+    });
+    addresses = JSON.stringify(addresses, null, 2);
+    return addresses;
+  } catch (err) {
+    throw err;
+  }
+};
 
-async function phoneNumberValidation(value) {
-    return /\d{10}/.test(value)
-}
-
-addressSchema.path('pin_code').validate(pinCodeValidation, '{VALUE} is not valid pin code')
-addressSchema.path('phone_number').validate(phoneNumberValidation, '{VALUE} is not a valid phone number')
-
+module.exports = Address;

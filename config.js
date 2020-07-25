@@ -1,3 +1,10 @@
-const secret = "somerandomsecret"
+const secret = "somerandomsecret";
 
-module.exports = {secret}
+const dbConfig = {
+  database: 'excellence',
+  username: 'temp',
+  password: 'passwordfortemp',
+  host: 'localhost'
+};
+
+module.exports = {secret, dbConfig};
